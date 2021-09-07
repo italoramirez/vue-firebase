@@ -10,9 +10,15 @@ export default createStore({
       categorias: [],
       estado: '',
       numero: 0
-    }
+    },
+    user: null
   },
   mutations: {
+
+    setUser( state, payload) { 
+      state.user = payload
+    },
+
     cargar(state, payload) {
       state.tareas = payload
     },
@@ -38,6 +44,29 @@ export default createStore({
     }
   },
   actions: {
+
+    async registrarUsuario ({commit}, usuario) {
+      try {
+        const res = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=AIzaSyCQW-33KVNVCuquuvn9T2MDnXJnCiibj4U', {
+          method: 'POST',
+          body: JSON.stringify({
+            email: usuario.email, 
+            password: usuario.password,
+            returnSecureToken: true
+          })
+        })
+        const userDB = await res.json();
+        if ( userDB.errors ) { 
+          console.log( userDB.errors )
+          return
+        }
+        console.log(userDB);
+        commit('setUser', userDB)
+      } catch (error) {
+        console.log(error);
+      }
+      console.log(usuario)
+    },
     async cargarLocalStorage({ commit }) {
       try {
         const res = await fetch('https://back-firebase-default-rtdb.firebaseio.com/tareas.json')
