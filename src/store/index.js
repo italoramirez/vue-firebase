@@ -11,11 +11,28 @@ export default createStore({
       estado: '',
       numero: 0
     },
-    user: null
+    user: null,
+    error: {tipo: null, mensaje: null}
   },
   mutations: {
-
-    setUser( state, payload) { 
+    setError(state, payload) {
+      if (payload === null) {
+        return state.error = {tipo: null, mensaje: null}
+      }
+      if ( payload=== 'EMAIL_NOT_FOUND') {
+        return state.error = {tipo: 'email', mensaje: 'Email no registrado'}
+      }
+      if ( payload=== 'INVALID_PASSWORD') {
+        return state.error = {tipo: 'password', mensaje: 'Contraseña incorrecta'}
+      }
+      if ( payload=== 'EMAIL_EXISTS') {
+        return state.error = {tipo: 'email', mensaje: 'Email ya registrado'}
+      }
+      if ( payload=== 'INVALID_EMAIL') {
+        return state.error = {tipo: 'email', mensaje: 'Ingrese un correo válido'}
+      }
+    },
+    setUser(state, payload) {
       state.user = payload
     },
 
@@ -44,32 +61,68 @@ export default createStore({
     }
   },
   actions: {
-
-    async registrarUsuario ({commit}, usuario) {
+    cerrarSesion ({ commit }) {
+        commit('setUser', null)
+      router.push('/login');
+        localStorage.removeItem('user')
+    },
+    async login ( { commit }, usuario ) {
       try {
-        const res = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=AIzaSyCQW-33KVNVCuquuvn9T2MDnXJnCiibj4U', {
+        const res = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=AIzaSyBHMV_25CCyXymOD-6k1FiGGiJgP8cvNWs', {
           method: 'POST',
           body: JSON.stringify({
-            email: usuario.email, 
+            email         : usuario.email,
+            password      : usuario.password,
+            returnSecureToken: true
+          })
+        })
+        const userDB = await res.json();
+        // console.log('login ', userDB);
+          console.log(userDB.error);
+        if ( userDB.error ) {
+          return commit('setError', userDB.error.message)
+        }
+        commit('setUser', userDB)
+        commit('setError', null)
+        router.push('/');
+        localStorage.setItem('user', JSON.stringify(userDB))
+      } catch (error) {
+        console.log(error);
+      }
+    },
+    async registrarUsuario ({commit}, usuario) {
+      try {
+        const res = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=AIzaSyBHMV_25CCyXymOD-6k1FiGGiJgP8cvNWs', {
+          method: 'POST',
+          body: JSON.stringify({
+            email: usuario.email,
             password: usuario.password,
             returnSecureToken: true
           })
         })
         const userDB = await res.json();
-        if ( userDB.errors ) { 
-          console.log( userDB.errors )
-          return
+
+        if ( userDB.error ) {
+          return commit('setError', userDB.error.message)
         }
         console.log(userDB);
         commit('setUser', userDB)
+        commit('setError', null)
+        router.push('/');
+        localStorage.setItem('user', JSON.stringify(userDB));
       } catch (error) {
         console.log(error);
       }
       console.log(usuario)
     },
-    async cargarLocalStorage({ commit }) {
+    async cargarLocalStorage({ commit, state }) {
+      if (localStorage.getItem('user')) {
+        commit('setUser', JSON.parse(localStorage.getItem('user')))
+      } else {
+        return commit('setUser', null)
+      }
       try {
-        const res = await fetch('https://back-firebase-default-rtdb.firebaseio.com/tareas.json')
+        const res = await fetch(`https://back-firebase-default-rtdb.firebaseio.com/tareas/${state.user.localId}.json?auth=${state.user.idToken}`)
         const dataDB = await res.json();
         // console.log(dataDB);
         const arrayTareas = []
@@ -91,12 +144,12 @@ export default createStore({
 
       // localStorage.setItem('tareas', JSON.stringify([]))
     },
-    async setTareas({ commit }, tarea) {
+    async setTareas({ commit, state }, tarea) {
 
       try {
-        const res = await fetch(`https://back-firebase-default-rtdb.firebaseio.com/tareas/${tarea.id}.json`, { 
+        const res = await fetch(`https://back-firebase-default-rtdb.firebaseio.com/tareas/${state.user.localId}/${tarea.id}.json?auth=${state.user.idToken}`, {
           method: 'PUT',
-          headers: { 
+          headers: {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify(tarea)
@@ -109,10 +162,10 @@ export default createStore({
         console.error(error);
       }
     },
-    async deleteTareas({ commit }, id) {
+    async deleteTareas({ commit, state }, id) {
 
       try {
-        await fetch(`https://back-firebase-default-rtdb.firebaseio.com/tareas/${id}.json`, { 
+        await fetch(`https://back-firebase-default-rtdb.firebaseio.com/tareas/${state.user.localId}/${id}.json?auth=${state.user.idToken}`, {
           method: 'DELETE',
         })
         commit('eliminar', id)
@@ -120,17 +173,17 @@ export default createStore({
         console.error(error);
       }
     },
-    setTarea({ commit }, id) {
+    setTarea({ commit, state }, id) {
       commit('tarea', id)
     },
-    async updateTarea({ commit }, tarea) {
+    async updateTarea({ commit, state }, tarea) {
       try {
-        const res = await fetch(`https://back-firebase-default-rtdb.firebaseio.com/tareas/${tarea.id}.json`, { 
-          method: 'PATCH', 
-          headers: { 
+        const res = await fetch(`https://back-firebase-default-rtdb.firebaseio.com/tareas/${state.user.localId}/${tarea.id}.json?auth=${state.user.idToken}`, {
+          method: 'PATCH',
+          headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(tarea)          
+          body: JSON.stringify(tarea)
         })
         const dataDB = await res.json();
         // console.log(dataDB)
@@ -139,6 +192,11 @@ export default createStore({
         console.error(error);
       }
       commit('update', tarea)
+    }
+  },
+  getters: {
+    usuarioAutenticado(state) {
+      return !!state.user
     }
   },
   modules: {

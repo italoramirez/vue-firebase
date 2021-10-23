@@ -13,7 +13,7 @@
 
 import Input from '../components/Input'
 import ListaTareas from '../components/ListaTareas'
-import {mapActions} from 'vuex'
+import { mapActions } from 'vuex'
 const shortid = require('shortid');
 
 export default {
@@ -33,7 +33,7 @@ export default {
     }
   },
   methods: {
-    ...mapActions(['setTareas']),
+    ...mapActions(['setTareas', 'cargarLocalStorage']),
     procesarFormulario(){
       console.log(this.tarea)
       if(this.tarea.nombre.trim() === ""){
@@ -45,7 +45,7 @@ export default {
       // generar id
       this.tarea.id = shortid.generate()
       console.log(this.tarea.id)
-      
+
       // envian los datos
       this.setTareas(this.tarea)
 
@@ -59,6 +59,9 @@ export default {
       }
     }
   },
+  created(){
+    this.cargarLocalStorage();
+  }
 
 }
 </script>
